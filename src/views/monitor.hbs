@@ -1,0 +1,35 @@
+<script>
+    var mode = "{{ mode }}";
+    var topics = "{{ topics }}";
+</script>
+<div id="charts" class="row"></div>
+<div id="loader" class="">
+    <div id="spinner" class="">
+    <div class="spinner">
+        <div class="double-bounce1"></div>
+        <div class="double-bounce2"></div>
+    </div>
+    </div>
+    <div id="state" class="text-center">
+        <p>Loading contents</p>
+    </div>
+</div>
+<br/>
+<!-- amCharts Resources -->
+
+<script src="https://www.amcharts.com/lib/3/amcharts.js"></script>
+<script src="https://www.amcharts.com/lib/3/serial.js"></script>
+<script src="https://www.amcharts.com/lib/3/amstock.js"></script>
+<script src="https://www.amcharts.com/lib/3/plugins/export/export.min.js"></script>
+<link rel="stylesheet" href="https://www.amcharts.com/lib/3/plugins/export/export.css" type="text/css" media="all" />
+<script src="https://www.amcharts.com/lib/3/themes/dark.js"></script>
+<script src="https://www.amcharts.com/lib/3/themes/black.js"></script>
+<script src="https://www.amcharts.com/lib/3/themes/light.js"></script>
+<script src="https://www.amcharts.com/lib/3/plugins/animate/animate.min.js"></script>
+
+
+<!-- mqtt resources -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js" type="text/javascript"></script> 
+
+<!-- custom js --> 
+<script src="/js/monitor.js"></script>
