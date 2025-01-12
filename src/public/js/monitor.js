@@ -2,54 +2,90 @@
 $(document).ready(function(){
     // Create a client instance
     var wsbroker = "127.0.0.1";
-    var wsport = 15675;
-    var connStr = wsbroker + ":" + wsport
-    var clientid = "myclientid_" + parseInt(Math.random() * 100, 10);
-    client = new Paho.MQTT.Client(wsbroker, wsport, "/ws", clientid);
+    var wsport = 5000; // // if using RabbitMQ, use port 15675 and path "/ws" // 5000
+    var wspath = "/mqtt"; // ws or mqtt
+    var connStr = wsbroker + ":" + wsport + wspath;
+    var clientid = "myclientid_" + parseInt(Math.random() * 1000, 10);    
+    client = new Paho.MQTT.Client(wsbroker, wsport, wspath, clientid); // if using RabbitMQ, use port 15675 and path "/ws"
     var initiated = false;
     var group = "";
     var curMaxRank = -99;
-    var sources = []; // determines order of graphs and charts
+    var sources = []; // determines order of graphs and charts    
+    var series = {};
+    var dates = {};
+    var charts = {};
+    var counts = {};
+    var bufferSize = 500; // 150
+
+    var initialDelay = 0;
+    var changeStateTime = 0;
+    var changeStateDelay = 0;
 
     // set callback handlers
     client.onConnectionLost = onConnectionLost;
     client.onMessageArrived = onMessageArrived;
 
-    // connect the client
-    var options = {
-        timeout: 3,
-        keepAliveInterval: 10,
-        cleanSession: true,
-        mqttVersion: 4,
-        onSuccess: onConnect,
-        onFailure: onFailure
-    };
+    // set options
+    var options = getOptions();
+
+    //mqttVersion: 4, // former: 4
 
     if(location.protocol == "https:") {
         options.useSSL = true;
     }
 
+    function setupClient() {
+        client = new Paho.MQTT.Client(wsbroker, wsport, wspath, clientid); // if using RabbitMQ, use port 15675 and path "/ws"
+        client.onConnectionLost = onConnectionLost;
+        client.onMessageArrived = onMessageArrived;
+    }
+
+    function prepare() {   
+        $("#charts").html("");     
+        initiated = false;
+        sources = [];   
+        series = {};
+        dates = {};
+        charts = {};
+        counts = {};
+    }
+
+    function getOptions() {
+        return {
+            timeout: 0,
+            keepAliveInterval: 0,
+            cleanSession: true,             
+            onSuccess: onConnect,
+            onFailure: onFailure
+            // ,hosts:
+            // ,ports:
+            // ,mqttVersion:
+        };
+    }
+
     // called when the client connects
     function onConnect() {
+        prepare();
         var topicStr = "";
-        topics = topics.split(',');
-        for(var t in topics) {
-            if(topics[t].slice(-2) == "**") {
-                sources.push(topics[t].substring(0, topics[t].length-2));                
-            } else if(topics[t].slice(-1) == "*") {
-                sources.push(topics[t].substring(0, topics[t].length-1));
+        var topicArr = topics.split(',');
+        for(var t in topicArr) {
+            if(topicArr[t].slice(-2) == "**") {
+                sources.push(topicArr[t].substring(0, topicArr[t].length-2));                
+            } else if(topicArr[t].slice(-1) == "*") {
+                sources.push(topicArr[t].substring(0, topicArr[t].length-1));
             } else {
-                sources.push(topics[t]);
+                sources.push(topicArr[t]);
             }
 
-            topics[t] = topics[t].replace("**", "#");
-            topics[t] = topics[t].split('-').join('/');
-            topicStr += "<br/>" + topics[t];
+            topicArr[t] = topicArr[t].replace("**", "#");
+            topicArr[t] = topicArr[t].split('-').join('/');
+            topicStr += "<br/>" + topicArr[t];
         }
-        changeState("Connection established", 500, 200, function() {
-            changeState("Wating for messages from" + topicStr, 500, 200, function() {
-                for(var t in topics) {
-                    client.subscribe(topics[t]);
+        changeState("Connection established", changeStateTime, changeStateDelay, function() {
+            changeState("Wating for messages from" + topicStr, changeStateTime, changeStateDelay, function() {
+                for(var t in topicArr) {
+                    client.subscribe(topicArr[t]);
+                    console.log("subscribe to: " + topicArr[t]);
                 }
             });
         });
@@ -60,9 +96,12 @@ $(document).ready(function(){
     }
 
     function onFailure(message) {
+        // console.log("onFailure: " + message.errorCode + " -- " + message.errorMessage);
         console.log("onFailure: " + message.errorMessage);
-        changeState("Connection failure, initiating retry", 500, 2000, function() {
-            changeState("Establishing connection to " + connStr, 500, 0, null);
+        changeState("Connection failure, initiating retry", changeStateTime, changeStateDelay, function() {
+            changeState("Establishing connection to " + connStr, changeStateTime, changeStateDelay, null);            
+            setupClient();
+            options = getOptions();
             client.connect(options);
         });
     }
@@ -71,9 +110,11 @@ $(document).ready(function(){
     function onConnectionLost(responseObject) {
         if (responseObject.errorCode !== 0) {
             console.log("onConnectionLost: " + responseObject.errorMessage);
-            changeState("Connection lost, initiating retry", 500, 2000, function() {
-                changeState("Establishing connection to " + connStr, 500, 0, null);
-                client.connect(options);
+            changeState("Connection lost, initiating retry", changeStateTime, changeStateDelay, function() {
+                changeState("Establishing connection to " + connStr, changeStateTime, changeStateDelay, null);            
+                setupClient();
+                options = getOptions();
+                client.connect(options);                
             });
         }
     }
@@ -87,7 +128,10 @@ $(document).ready(function(){
         }
         
         var source = message.destinationName.split('/').join('-');
-        var tmpObj = JSON.parse(message.payloadString);
+        var _tmpObj = JSON.parse(message.payloadString);
+        var tmpObj = _tmpObj.Content;
+        // console.log("payload = " + JSON.stringify(tmpObj));        
+        
         if(Object.prototype.toString.call(tmpObj) === '[object Array]') {
             
             for(var t in tmpObj) {
@@ -102,6 +146,9 @@ $(document).ready(function(){
 
     function parseItem(_item, _source) {
         var item = {};
+        // console.log("id = " + _item.id);
+        // console.log("source = " + _source);        
+
         item.id = _item.id;
         item.source = _source;
         item.group = _item.group;
@@ -110,15 +157,23 @@ $(document).ready(function(){
         item._value = _item.value.toFixed(2);
         item.date = moment(_item.timestamp, "YYYY-MM-DD-HH-mm-ss-SSS").toDate();
         item.systemTimestamp = moment(_item.systemTimestamp, "YYYY-MM-DD-HH-mm-ss-SSS").toDate();
+        
+        if(!charts[item.id]) {
+            counts[item.id] = 0;
+            item.count = 0;
+        } else {
+            counts[item.id]++;
+            item.count = counts[item.id];
+        }
 
-        //console.log(item.systemTimestamp);
 
         var gRank = 1;
         for(var s = 0; s < sources.length; s++) {           
             if(item.source.startsWith(sources[s])) {
                 gRank = (s+1);
-                s += sources.length;
-            }
+                s += sources.length;                
+                
+            }       
         }
         item.grank = gRank;
         item["value"+item.grank] = item._value;
@@ -137,7 +192,7 @@ $(document).ready(function(){
         }
         if(!charts[item.id]) {
             series[item.id] = [];
-            series[item.id].push(item.source);
+            series[item.id].push(item.source);            
 
             initChart(item, 1);
             if(curMaxRank > item.rank) {
@@ -155,18 +210,13 @@ $(document).ready(function(){
     }
 
     // Chart
-    
-    var series = {};
-    var dates = {};
-    var charts = {};
-    var bufferSize = 150;
 
     function updateChart(item) {
         var id = item.id;
         var data = charts[id].dataProvider;
         var len = data.length;
         var foundEntry = false;
-        var valueAlias = "value"+item.grank;
+        var valueAlias = "value"+item.grank;        
 
         if(series[id].length > 1) {
             // reverse search for date (if already added)
@@ -207,7 +257,7 @@ $(document).ready(function(){
 
         $("#charts")
         .append(
-            '<div id="chartslot_' + rank + '" class="col col-lg-6 col-md-12 col-sm-12">'
+            '<div id="chartslot_' + rank + '" class="col col-lg-4 col-md-6 col-sm-12">'
             + '<div id="chart-' + item.id + '" class="chart-instance chart-' + Object.keys(charts).length + '"></div>'
             + '</div>');
         
@@ -215,8 +265,11 @@ $(document).ready(function(){
             "type": "serial",
             "theme": "light",
             "titles": [
-                {"text": item.title, "size": 12}
+                {"text": item.title, "size": 12} // 12
             ],
+            "legend": {
+                "useGraphSettings": true
+            },
             "marginRight": 0,
             "marginLeft": 50,
             "autoMarginOffset": 10,
@@ -229,6 +282,7 @@ $(document).ready(function(){
                 "ignoreAxisWidth":true
             }],
             "balloon": {
+                "enabled":false,
                 "borderThickness": 1,
                 "shadowAlpha": 0
             },
@@ -248,7 +302,7 @@ $(document).ready(function(){
                 "bulletSize": 5,
                 "hideBulletsCount": bufferSize/4 <= 50 ? bufferSize/4 : 50,
                 "lineThickness": 2,
-                "title": "red line",
+                "title": item.source,
                 "useLineColorForBulletBorder": true,
                 "valueField": "value"+item.grank,
                 "balloonText": "<span style='font-size:14px;'>[[value]]</span>"
@@ -257,7 +311,7 @@ $(document).ready(function(){
                 "graph": "g"+item.grank,
                 "oppositeAxis":false,
                 "offset":30,
-                "scrollbarHeight": 100,
+                "scrollbarHeight": 40,
                 "backgroundAlpha": 0,
                 "selectedBackgroundAlpha": 0.1,
                 "selectedBackgroundColor": "#888888",
@@ -282,22 +336,42 @@ $(document).ready(function(){
                     return moment(date).format("HH:mm:ss.SSS");
                 }
             },
-            "valueScrollbar":{
-                "oppositeAxis":true,
-                "offset":0,
-                "scrollbarHeight":60,
-                "dragIcon": "dragIconRectSmall"
-            },
-            "categoryField": "date",
+            // "valueScrollbar":{
+            //     "oppositeAxis":true,
+            //     "offset":0,
+            //     "scrollbarHeight":60,
+            //     "dragIcon": "dragIconRectSmall"
+            // },
+            // "categoryField": "date", // date / count
+            // "categoryAxis": {
+            //     "parseDates": true, // true
+            //     "minPeriod": "fff", // fff
+            //     "dashLength": 1,
+            //     "position": "bottom",
+            //     "minorGridEnabled": true
+            // },
+            "categoryField": "date", // date / count
             "categoryAxis": {
-                "parseDates": true,
-                "minPeriod": "fff",
+                "parseDates": true, // true / false
+                "minPeriod": "fff", // fff
                 "dashLength": 1,
-                "position": "bottom",
-                "minorGridEnabled": true
-                // "labelFunction": function(valueText, date, categoryAxis) {
-                //     return moment(date).format("HH-mm-ss-SSS"); // "YYYY-MM-DD-HH-mm-ss-SSS"
-                // }
+                "position": "bottom",                
+                "autoGridCount": false,
+                "minorGridEnabled": true,
+                "equalSpacing": true,
+                // "forceShowField": true,
+                // "labelFrequency": 10,
+                "labelFunction": function(valueText, date, categoryAxis) {
+                    return moment(date).format("HH-mm-ss"); // "YYYY-MM-DD-HH-mm-ss-SSS"
+                    // return moment("" + count + "-00-00-00-00-00-000").format("Y"); // "YYYY-MM-DD-HH-mm-ss-SSS"
+                    // console.log(count);
+                    // categoryAxis.renderer.minGridDistance = 10;
+
+                    // count:
+                    // var c = count.category;
+                    // if(parseInt(c) % 10 == 0) return "" + c;
+                    // else return;
+                }
             },
             "dataProvider": [],
             "export": {
@@ -305,6 +379,7 @@ $(document).ready(function(){
                 "position": "top-right"
             }
         });
+        
 
         charts[item.id].zoomStartIndex = 0;
         charts[item.id].zoomEndIndex = 0;
@@ -351,7 +426,7 @@ $(document).ready(function(){
             "bulletSize": 5,
             "hideBulletsCount": bufferSize/4 <= 50 ? bufferSize/4 : 50,
             "lineThickness": 2,
-            "title": "red line",
+            "title": item.source,
             "useLineColorForBulletBorder": true,
             "valueField": "value"+item.grank,
             "balloonText": "<span style='font-size:14px;'>[[value]]</span>"
@@ -401,8 +476,8 @@ $(document).ready(function(){
     }
 
     setTimeout(function() {
-        changeState("Establishing connection to " + connStr, 500, 250, function() {
+        changeState("Establishing connection to " + connStr, changeStateTime, changeStateDelay, function() {
             client.connect(options);
         });
-    }, 500);
+    }, initialDelay);
 });

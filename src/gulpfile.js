@@ -7,17 +7,6 @@ var nodemon = require('gulp-nodemon');
 gulp.task('default', ['browser-sync'], function () {
 });
 
-// gulp.task('browser-sync', ['nodemon'], function() {
-// 	browserSync.init(null, {
-// 		open: 'external',
-// 		host: 'webdev.local',
-// 		proxy: "webdev.local",		
-//         port: 3000,
-//         files: ["views/**/*.*", "sass/**/*.*","public/**/*.*"],
-//         browser: "chrome"
-// 	});
-// });
-
 // https://medium.com/unchainedstudio/setting-up-nodemon-browsersync-and-gulp-to-work-together-d66ed6c6969a
 gulp.task('browser-sync', ['nodemon'], function() {
 	browserSync.init(null, {
@@ -30,10 +19,9 @@ gulp.task('browser-sync', ['nodemon'], function() {
 	});
 });
 
+
 gulp.task('nodemon', function (cb) {
-	
 	var started = false;
-	
 	return nodemon({
 		script: 'index.js'
 	}).on('start', function () {
