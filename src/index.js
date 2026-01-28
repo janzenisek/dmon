@@ -3,9 +3,11 @@ var fs          = require('fs'),
     http        = require('http'),
     express     = require('express'),
     exphbs      = require('express-handlebars'),
-    sass        = require('node-sass-middleware'),
+    sass        = require('sass'),
+    // sass        = require('node-sass-middleware'),
     //redirect    = require('redirect')('monitor.herokuapp.com'),
     socketio    = require('socket.io');
+const path = require('path');
 
 var router = express.Router();
 var app = express();
@@ -43,12 +45,91 @@ app.set('views', __dirname+'/views');
 //app.engine('.hbs', exphbs({extname: '.hbs', defaultLayout: 'main', layoutsDir: 'views/layouts/', partialsDir: 'views/partials/'}));
 app.engine('.hbs', hbs.engine);
 app.set('view engine', '.hbs');
-app.use(sass({
-    src: __dirname + '/sass',
-    dest: __dirname + '/public/css',
-    prefix: '/css',
-    debug: true
-}));
+
+
+const sassSrc = path.join(__dirname, 'sass');
+const cssDest = path.join(__dirname, 'public', 'css');
+
+function compileSassFile(scssPath) {
+    // skip partials that start with _
+    if (path.basename(scssPath).startsWith('_')) return;
+    const rel = path.relative(sassSrc, scssPath);
+    const outPath = path.join(cssDest, rel).replace(/\.(scss|sass)$/, '.css');
+    fs.mkdirSync(path.dirname(outPath), { recursive: true });
+
+    try {
+        const result = sass.renderSync({
+            file: scssPath,
+            outFile: outPath,
+            sourceMap: true,
+            includePaths: [sassSrc]
+        });
+        fs.writeFileSync(outPath, result.css);
+        if (result.map) fs.writeFileSync(outPath + '.map', result.map);
+        console.log(`Sass compiled: ${scssPath} -> ${outPath}`);
+    } catch (err) {
+        console.error(`Sass error in ${scssPath}:\n`, err.formatted || err.message);
+    }
+}
+
+function compileSassDir(dir) {
+    const entries = fs.readdirSync(dir);
+    entries.forEach(e => {
+        const full = path.join(dir, e);
+        const st = fs.statSync(full);
+        if (st.isDirectory()) {
+            compileSassDir(full);
+        } else if (st.isFile() && /\.(scss|sass)$/.test(full)) {
+            compileSassFile(full);
+        }
+    });
+}
+
+// initial compile
+try {
+    if (fs.existsSync(sassSrc)) {
+        compileSassDir(sassSrc);
+    } else {
+        console.warn('Sass source directory not found:', sassSrc);
+    }
+} catch (err) {
+    console.error('Error compiling Sass:', err);
+}
+
+// watch for changes in development
+if (env === 'development' && fs.existsSync(sassSrc)) {
+    try {
+        let timer;
+        fs.watch(sassSrc, { recursive: true }, (eventType, filename) => {
+            if (!filename) return;
+            const extMatch = filename.match(/\.(scss|sass)$/);
+            if (!extMatch) return;
+            clearTimeout(timer);
+            timer = setTimeout(() => {
+                const full = path.join(sassSrc, filename);
+                if (fs.existsSync(full)) {
+                    compileSassFile(full);
+                } else {
+                    // file removed or renamed — recompile all to be safe
+                    compileSassDir(sassSrc);
+                }
+            }, 100);
+        });
+        console.log('Watching Sass files for changes in', sassSrc);
+    } catch (err) {
+        console.warn('Unable to watch Sass directory:', err.message);
+    }
+}
+
+// serve compiled css (optional - static public already served later)
+app.use('/css', express.static(cssDest));
+
+// app.use(sass({
+//     src: __dirname + '/sass',
+//     dest: __dirname + '/public/css',
+//     prefix: '/css',
+//     debug: true
+// }));
 
 //app.use(express.bodyParser()); // ???
 //app.use(express.methodOverride()); // ???

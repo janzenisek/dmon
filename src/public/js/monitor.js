@@ -127,11 +127,12 @@ $(document).ready(function(){
             //updateCharts();
         }
         
-        var source = message.destinationName.split('/').join('-');
-        var _tmpObj = JSON.parse(message.payloadString);
-        var tmpObj = _tmpObj.Content;
-        // console.log("payload = " + JSON.stringify(tmpObj));        
-        
+        var source = message.destinationName.split('/').join('-');        
+        var _tmpObj = JSON.parse(message.payloadString);        
+        // var tmpObj = _tmpObj.Content;
+        var tmpObj = _tmpObj;
+        // console.log("payload = " + JSON.stringify(tmpObj)); 
+                
         if(Object.prototype.toString.call(tmpObj) === '[object Array]') {
             
             for(var t in tmpObj) {
@@ -144,8 +145,8 @@ $(document).ready(function(){
         }
     }
 
-    function parseItem(_item, _source) {
-        var item = {};
+    function parseItem(_item, _source) {        
+        var item = {};                
         // console.log("id = " + _item.id);
         // console.log("source = " + _source);        
 

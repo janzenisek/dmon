@@ -15,8 +15,8 @@
 	],
 	"license": "ISC",
 	"engines": {
-		"node": "18.12.x",
-		"npm": "8.19.x"
+		"node": "v22.17.x",
+		"npm": "10.9.x"
 	},
 	"scripts": {
 		"start": "nodemon index.js",
@@ -26,10 +26,12 @@
 	"dependencies": {
 		"express": "^4.18.2",
 		"express-handlebars": "^6.0.7",
-		"moment": "^2.29.4",
-		"node-sass-middleware": "^1.0.1",
+		"moment": "^2.29.4",		
+		"sass": "^1.66.1",
+		"npm": "8.19.x",
 		"redirect": "^0.2.0",
-		"socket.io": "^4.6.0"
+		"socket.io": "^4.6.0",
+		"undertaker": "^2.0.0"
 	},
 	"devDependencies": {
 		"browser-sync": "^2.29.3",

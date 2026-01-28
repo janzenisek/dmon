@@ -389,3 +389,18 @@ a {
   color: #6a89cc;
   font-weight: bold;
 }
+
+#legend, #model {
+  display: block;
+  margin: 0;
+  padding: 0px 25px 0px 25px;
+  color: $text-darkgrey;
+}
+
+.legend-label, .model-label {
+  display: block;
+  margin: 0;
+  padding: 20px 25px 5px 25px;
+  color: $text-darkgrey;
+  font-weight: bold;
+}
