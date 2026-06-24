@@ -332,8 +332,8 @@
 			var options = {
 				layout: {
 					hierarchical: {
-						direction: "UD", // LR, 
-						sortMethod: "directed",
+						direction: "UD", // UD / LR, 
+						sortMethod: "directed", // directed / hubsize
 						parentCentralization: true
 					}
 				}

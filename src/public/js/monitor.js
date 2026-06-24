@@ -5,7 +5,7 @@ $(document).ready(function(){
     var wsport = 5000; // // if using RabbitMQ, use port 15675 and path "/ws" // 5000
     var wspath = "/mqtt"; // ws or mqtt
     var connStr = wsbroker + ":" + wsport + wspath;
-    var clientid = "myclientid_" + parseInt(Math.random() * 1000, 10);    
+    var clientid = "myclientid_" + parseInt(Math.random() * 100, 10);    
     client = new Paho.MQTT.Client(wsbroker, wsport, wspath, clientid); // if using RabbitMQ, use port 15675 and path "/ws"
     var initiated = false;
     var group = "";
@@ -120,35 +120,37 @@ $(document).ready(function(){
     }
 
     // called when a message arrives
-    function onMessageArrived(message) {
+    function onMessageArrived(message) {  
         if(!initiated) {
             initiated = true;
             fadeLoader();
             //updateCharts();
         }
+        var source = message.destinationName.split('/').join('-'); 
         
-        var source = message.destinationName.split('/').join('-');        
-        var _tmpObj = JSON.parse(message.payloadString);        
+        var tmpObj = JSON.parse(message.payloadString)                             
         // var tmpObj = _tmpObj.Content;
-        var tmpObj = _tmpObj;
+        // var tmpObj = _tmpObj;
         // console.log("payload = " + JSON.stringify(tmpObj)); 
                 
         if(Object.prototype.toString.call(tmpObj) === '[object Array]') {
             
-            for(var t in tmpObj) {
-                var item = parseItem(tmpObj[t], source);
+            for(var t in tmpObj) {                
+                var item = parseItem(tmpObj[t], source);                
                 processItem(item);                
             }
-        } else {
-            var item = parseItem(tmpObj, source);
+        } else {      
+            var item = parseItem(tmpObj, source);                      
             processItem(item);
         }
     }
 
     function parseItem(_item, _source) {        
-        var item = {};                
-        // console.log("id = " + _item.id);
-        // console.log("source = " + _source);        
+        var item = {};                      
+           
+        // console.log("source = " + _source);  
+        // console.log("id = " + _item.id);                
+        // return;
 
         item.id = _item.id;
         item.source = _source;

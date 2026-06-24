@@ -241,6 +241,7 @@ a {
 
 .row {
   margin: 0;
+  display: inline-block;
 }
 
 .col {
